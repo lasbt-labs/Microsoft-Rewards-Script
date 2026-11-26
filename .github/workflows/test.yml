@@ -1,0 +1,123 @@
+name: Rewards run
+
+on:
+    schedule:
+        - cron: '0 12 * * *'
+          timezone: 'America/Bahia'
+        - cron: '0 15 * * *'
+          timezone: 'America/Bahia'
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: rewards-run
+    cancel-in-progress: false
+
+jobs:
+    run:
+        runs-on: ubuntu-24.04
+        timeout-minutes: 120
+        env:
+            DATA_REPO: lasbt-labs/rewards-data
+            DATA_BRANCH: main
+            DATA_DIR: ${{ github.workspace }}/.rewards-data
+            FORCE_HEADLESS: 'true'
+            # Troque para "api" se quiser runs curtos e menos frágeis.
+            CONFIG_REWARDS_MODE: browser
+            CONFIG_CLUSTERS: '1'
+            CONFIG_SEARCH_PARALLEL: 'false'
+            CONFIG_TASK_DELAY_MIN: 15sec
+            CONFIG_TASK_DELAY_MAX: 30sec
+            CONFIG_SEARCH_DELAY_MIN: 30sec
+            CONFIG_SEARCH_DELAY_MAX: 1min
+            PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.patchright-browsers
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: v5
+                  persist-credentials: false
+
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 24
+                  cache: npm
+
+            - name: Restore Chromium cache
+              id: browser-cache
+              uses: actions/cache@v4
+              with:
+                  path: ${{ env.PLAYWRIGHT_BROWSERS_PATH }}
+                  key: patchright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+                  restore-keys: |
+                      patchright-${{ runner.os }}-
+
+            - name: Install locked dependencies
+              run: npm ci --include=dev --ignore-scripts
+
+            - name: Install Chromium
+              if: steps.browser-cache.outputs.cache-hit != 'true'
+              run: npx patchright install --with-deps chromium
+
+            - name: Build
+              run: npm run build
+
+            - name: Clone rewards-data
+              env:
+                  DATA_TOKEN: ${{ secrets.REWARDS_DATA_TOKEN }}
+              run: |
+                  git clone --depth 1 --branch "$DATA_BRANCH" \
+                    "https://x-access-token:${DATA_TOKEN}@github.com/${DATA_REPO}.git" \
+                    "$DATA_DIR"
+
+            - name: Prepare config
+              run: |
+                  if [ -f "$DATA_DIR/config.json" ]; then
+                      cp -a "$DATA_DIR/config.json" ./config.json
+                  else
+                      cp config.example.json config.json
+                  fi
+                  node dist/config/ConfigSync.js sync --patch
+
+            - name: Restore .env and sessions
+              run: |
+                  test -f "$DATA_DIR/.env" || { echo "::error::.env ausente em ${DATA_REPO}@${DATA_BRANCH}"; exit 1; }
+                  cp -a "$DATA_DIR/.env" ./.env
+                  rm -rf ./sessions
+                  if [ -d "$DATA_DIR/sessions" ]; then
+                      mkdir -p ./sessions
+                      cp -a "$DATA_DIR/sessions/." ./sessions/
+                  fi
+
+            - name: Run bot
+              run: npm start
+
+            - name: Push updated state
+              env:
+                  DATA_TOKEN: ${{ secrets.REWARDS_DATA_TOKEN }}
+              run: |
+                  set -euo pipefail
+                  cd "$DATA_DIR"
+                  rm -rf sessions .env
+                  mkdir -p sessions
+                  cp -a "$GITHUB_WORKSPACE/sessions/." sessions/ 2>/dev/null || true
+                  cp -a "$GITHUB_WORKSPACE/.env" .env
+                  if [ -f "$GITHUB_WORKSPACE/config.json" ]; then
+                      cp -a "$GITHUB_WORKSPACE/config.json" config.json
+                  fi
+                  git config user.name "github-actions[bot]"
+                  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                  git add -A
+                  if git diff --cached --quiet; then
+                      echo "Sem alterações em .env/sessions/config.json."
+                      exit 0
+                  fi
+                  git commit -m "chore: rewards run $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+                  git pull --rebase --autostash origin "$DATA_BRANCH"
+                  git push origin "HEAD:$DATA_BRANCH"
+
+            - name: Cleanup
+              if: always()
+              run: |
+                  rm -rf .env config.json sessions dist .rewards-data
