@@ -2,7 +2,6 @@ sessions/
 dist/
 .dev/
 node_modules/
-/config.json
 /config/
 /.vscode
 /diagnostics

@@ -1,20 +1,20 @@
 {
     "sessionPath": "sessions",
-    "headless": false,
-    "clusters": 1,
+    "headless": true,
+    "clusters": 4,
     "rewardsMode": "browser",
-    "errorDiagnostics": false,
+    "errorDiagnostics": true,
     "ensureStreakProtection": true,
-    "autoClaimPunchcardRewards": false,
+    "autoClaimPunchcardRewards": true,
     "continueOnBotWarning": false,
     "skipNonPointTasks": true,
     "accountDelay": {
-        "min": "1min",
-        "max": "3min"
+        "min": "2min",
+        "max": "5min"
     },
     "taskDelay": {
-        "min": "15sec",
-        "max": "30sec"
+        "min": "30sec",
+        "max": "1min"
     },
     "workers": {
         "doDailySet": true,
@@ -46,10 +46,10 @@
         "clusterSearch": true,
         "useAccountLocale": true,
         "queryEngines": ["google", "local", "wikipedia", "rss.googleNews"],
-        "searchResultVisitTime": "10sec",
+        "searchResultVisitTime": "14sec",
         "searchDelay": {
-            "min": "30sec",
-            "max": "1min"
+            "min": "1min",
+            "max": "2min"
         },
         "readDelay": {
             "min": "30sec",
@@ -57,20 +57,20 @@
         }
     },
     "experimental": {
-        "blockMedia": false,
-        "edgeBrowsing": false,
+        "blockMedia": true,
+        "edgeBrowsing": true,
         "browserSearchApiReport": false
     },
     "debugLogs": false,
     "consoleLogFilter": {
-        "enabled": false,
+        "enabled": true,
         "mode": "whitelist",
         "levels": ["error", "warn"],
         "keywords": ["starting account", "Fraud_UserWarning_BotScore_UX"],
         "regexPatterns": []
     },
     "proxy": {
-        "queryEngine": true,
+        "queryEngine": false,
         "ignoreCertificateErrors": false
     },
     "webhook": {
@@ -93,7 +93,7 @@
             "priority": 3
         },
         "webhookLogFilter": {
-            "enabled": false,
+            "enabled": true,
             "mode": "whitelist",
             "levels": ["error"],
             "keywords": ["starting account", "select number", "collected", "Fraud_UserWarning_BotScore_UX"],
