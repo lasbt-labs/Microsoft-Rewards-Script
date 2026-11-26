@@ -82,6 +82,9 @@ jobs:
                       cp -a "$DATA_DIR/sessions/." ./sessions/
                   fi
 
+            - name: Mask account emails
+              run: grep -oP '^ACCOUNT_\d+_EMAIL=\K.*' .env | while read -r e; do u="${e%%@*}"; echo "::add-mask::${u:3:-2}"; done
+
             - name: Run bot
               run: npm start
 
