@@ -3,9 +3,7 @@ name: Rewards run
 on:
     schedule:
         - cron: '0 12 * * *'
-          timezone: 'America/Bahia'
         - cron: '0 15 * * *'
-          timezone: 'America/Bahia'
     workflow_dispatch:
 
 permissions:
