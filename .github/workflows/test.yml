@@ -23,15 +23,9 @@ jobs:
             DATA_REPO: lasbt-labs/rewards-data
             DATA_BRANCH: main
             DATA_DIR: ${{ github.workspace }}/.rewards-data
+            TZ: America/Bahia
             FORCE_HEADLESS: 'true'
-            # Troque para "api" se quiser runs curtos e menos frágeis.
-            CONFIG_REWARDS_MODE: browser
-            CONFIG_CLUSTERS: '1'
-            CONFIG_SEARCH_PARALLEL: 'false'
-            CONFIG_TASK_DELAY_MIN: 15sec
-            CONFIG_TASK_DELAY_MAX: 30sec
-            CONFIG_SEARCH_DELAY_MIN: 30sec
-            CONFIG_SEARCH_DELAY_MAX: 1min
+            NODE_OPTIONS: --disable-warning=ExperimentalWarning
             PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.patchright-browsers
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -75,8 +69,6 @@ jobs:
               run: |
                   if [ -f "$DATA_DIR/config.json" ]; then
                       cp -a "$DATA_DIR/config.json" ./config.json
-                  else
-                      cp config.example.json config.json
                   fi
                   node dist/config/ConfigSync.js sync --patch
 
@@ -93,16 +85,26 @@ jobs:
             - name: Run bot
               run: npm start
 
+            # Roda mesmo com o bot falhando, para não perder sessão renovada.
+            # Só substitui sessions/ se o run realmente gerou um banco.
             - name: Push updated state
+              if: always()
               env:
                   DATA_TOKEN: ${{ secrets.REWARDS_DATA_TOKEN }}
               run: |
                   set -euo pipefail
                   cd "$DATA_DIR"
-                  rm -rf sessions .env
-                  mkdir -p sessions
-                  cp -a "$GITHUB_WORKSPACE/sessions/." sessions/ 2>/dev/null || true
+                  if [ ! -f "$GITHUB_WORKSPACE/.env" ]; then
+                      echo "Workspace sem .env, nada a enviar."
+                      exit 0
+                  fi
                   cp -a "$GITHUB_WORKSPACE/.env" .env
+                  if [ -f "$GITHUB_WORKSPACE/sessions/sessions.db" ]; then
+                      rm -rf sessions
+                      mkdir -p sessions
+                      cp -a "$GITHUB_WORKSPACE/sessions/." sessions/
+                  fi
+                  # Se o config.json aparecer modificado em todo run, apague este bloco.
                   if [ -f "$GITHUB_WORKSPACE/config.json" ]; then
                       cp -a "$GITHUB_WORKSPACE/config.json" config.json
                   fi
