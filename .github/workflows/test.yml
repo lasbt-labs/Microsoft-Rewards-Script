@@ -2,8 +2,7 @@ name: Rewards run
 
 on:
     schedule:
-        - cron: '0 12 * * *'
-        - cron: '0 15 * * *'
+        - cron: '0 12,15 * * *'
     workflow_dispatch:
 
 permissions:
